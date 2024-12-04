@@ -36,17 +36,15 @@ io.on("connection", (socket) => {
     if (roomData.players.length < 2) {
       roomData.players.push(socket.id);
 
-      // If only one player is left in the room, they should be assigned "X"
       let player;
       if (roomData.players.length === 1) {
-        player = "X"; // The first player gets "X"
+        player = "X";
       } else {
-        player = "O"; // The second player gets "O"
+        player = "O";
       }
 
-      // If only one player is left and that player was "O", promote them to "X"
       if (roomData.players.length === 1 && roomData.usernames["X"]) {
-        player = "O"; // Player O is already assigned, remaining player gets "X"
+        player = "O";
       }
 
       roomData.usernames[player] = username;
