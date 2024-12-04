@@ -18,6 +18,11 @@ io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
   socket.on("joinRoom", ({ room, username }) => {
+    if (!/^\d{4}$/.test(room)) {
+      socket.emit("invalidRoom", "Room must be a 4-digit number");
+      return;
+    }
+
     if (!rooms[room]) {
       rooms[room] = {
         players: [],
@@ -28,8 +33,33 @@ io.on("connection", (socket) => {
     }
 
     const roomData = rooms[room];
-
     if (roomData.players.length < 2) {
+      roomData.players.push(socket.id);
+
+      // If only one player is left in the room, they should be assigned "X"
+      let player;
+      if (roomData.players.length === 1) {
+        player = "X"; // The first player gets "X"
+      } else {
+        player = "O"; // The second player gets "O"
+      }
+
+      // If only one player is left and that player was "O", promote them to "X"
+      if (roomData.players.length === 1 && roomData.usernames["X"]) {
+        player = "O"; // Player O is already assigned, remaining player gets "X"
+      }
+
+      roomData.usernames[player] = username;
+      socket.join(room);
+
+      socket.emit("assignPlayer", { player, usernames: roomData.usernames });
+
+      io.in(room).emit("updateBoard", {
+        board: roomData.board,
+        currentTurn: roomData.currentTurn,
+        usernames: roomData.usernames,
+      });
+    } else if (roomData.players.length < 2) {
       roomData.players.push(socket.id);
       const player = roomData.players.length === 1 ? "X" : "O";
 
@@ -44,9 +74,11 @@ io.on("connection", (socket) => {
         usernames: roomData.usernames,
       });
 
+      io.in(room).emit("playerCount", roomData.players.length);
+
       console.log(`${username} joined room ${room} as player ${player}`);
     } else {
-      socket.emit("roomFull", "Ruangan sudah penuh.");
+      socket.emit("roomFull", "Room is full");
     }
   });
 
@@ -86,36 +118,42 @@ io.on("connection", (socket) => {
       if (playerIndex !== -1) {
         rooms[room].players.splice(playerIndex, 1);
         console.log(`Player removed from room ${room}`);
+
         if (rooms[room].players.length === 0) {
           delete rooms[room];
+        } else if (rooms[room].players.length === 1) {
+          const remainingPlayerId = rooms[room].players[0];
+          const remainingPlayer =
+            rooms[room].usernames["X"] === remainingPlayerId ? "X" : "O";
+
+          if (remainingPlayer === "O") {
+            rooms[room].usernames["X"] = rooms[room].usernames["O"];
+            delete rooms[room].usernames["O"];
+            rooms[room].currentTurn = "X";
+          }
+
+          rooms[room].board = Array(9).fill(null);
+          rooms[room].currentTurn = "X";
+
+          io.to(remainingPlayerId).emit(
+            "playerDisconnected",
+            `Other player has disconnected. The game has been reset.`
+          );
+
+          io.in(room).emit("updateBoard", {
+            board: rooms[room].board,
+            currentTurn: rooms[room].currentTurn,
+            usernames: rooms[room].usernames,
+          });
+          console.log(`Room ${room} reset as only 1 player is left.`);
+        } else {
+          io.in(room).emit("playerCount", rooms[room].players.length);
         }
         break;
       }
     }
   });
 });
-
-
-let onlineUsers = []
-
-io.on('connection', (socket) => {
-  console.log("user connected", socket.id)
-
-  onlineUsers.push({
-    socketId: socket.id,
-    username: socket.handshake.auth.username
-  })
-
-  io.emit('users:online', onlineUsers)
-
-  socket.on('disconnect', () => {
-    onlineUsers = onlineUsers.filter(u => {
-      return u.socketId !== socket.id
-    })
-  })
-})
-
-
 
 server.listen(port, () => {
   console.log(`Server running at: http://localhost:${port}`);
