@@ -46,7 +46,7 @@ io.on("connection", (socket) => {
 
       console.log(`${username} joined room ${room} as player ${player}`);
     } else {
-      socket.emit("roomFull", "Ruangan sudah penuh.");
+      socket.emit("roomFull", "Room is full");
     }
   });
 
