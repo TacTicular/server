@@ -6,6 +6,10 @@ const app = express();
 const port = process.env.PORT || 3000;
 const server = createServer(app);
 
+app.get("/", (req, res) => {
+  res.send("Hello World!");
+});
+
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:5173",
