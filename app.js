@@ -6,6 +6,10 @@ const app = express();
 const port = process.env.PORT || 3000;
 const server = createServer(app);
 
+app.get("/", (req, res) => {
+  res.send("Hello World!");
+});
+
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:5173",
@@ -33,23 +37,11 @@ io.on("connection", (socket) => {
     }
 
     const roomData = rooms[room];
-    if (roomData.players.length < 2) {
-      roomData.players.push(socket.id);
-
-      let player;
-      if (roomData.players.length === 1) {
-        player = "X";
-      } else {
-        player = "O";
-      }
-
-      if (roomData.players.length === 1 && roomData.usernames["X"]) {
-        player = "O";
-      }
-
-      roomData.usernames[player] = username;
-      socket.join(room);
-
+    const existingPlayer = roomData.players.find(
+      (playerId) => playerId === socket.id
+    );
+    if (existingPlayer) {
+      const player = roomData.usernames["X"] === socket.id ? "X" : "O";
       socket.emit("assignPlayer", { player, usernames: roomData.usernames });
 
       io.in(room).emit("updateBoard", {
